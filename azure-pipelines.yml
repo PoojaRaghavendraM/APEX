@@ -9,8 +9,44 @@ trigger:
 pool:
   vmImage: 'windows-latest'
 
+variables:
+- group: apex-credentials
+
 steps:
-- script: |
-    echo "Listing files from repo..."
-    dir
-  displayName: 'Check repository files'
+
+# Download SQLcl
+- task: PowerShell@2
+  displayName: 'Install SQLcl'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Invoke-WebRequest -Uri https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip -OutFile sqlcl.zip
+      Expand-Archive sqlcl.zip -DestinationPath sqlcl
+
+# Download wallet
+- task: DownloadSecureFile@1
+  name: walletFile
+  inputs:
+    secureFile: 'Wallet_atpdb2024.zip'
+
+# Extract wallet
+- task: PowerShell@2
+  displayName: 'Extract Wallet'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Expand-Archive $(walletFile.secureFilePath) -DestinationPath wallet
+
+# Deploy APEX app
+- task: CmdLine@2
+  displayName: 'Deploy APEX App'
+  inputs:
+    script: |
+      set TNS_ADMIN=%CD%\wallet
+      cd sqlcl\sqlcl\bin
+
+      echo Connecting to DB...
+      echo exit | sql $(DB_USER)/$(DB_PASSWORD)@atpdb2024_high
+
+      echo Importing APEX app...
+      sql $(DB_USER)/$(DB_PASSWORD)@atpdb2024_high @$(Build.SourcesDirectory)\f114\f114.sql
