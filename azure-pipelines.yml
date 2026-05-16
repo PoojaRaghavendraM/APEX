@@ -39,10 +39,12 @@ steps:
   inputs:
     script: |
       set TNS_ADMIN=$(Agent.TempDirectory)\wallet
+      set DEPLOY_SQL=$(Agent.TempDirectory)\deploy_apex.sql
 
       echo Creating deploy script...
       (
         echo whenever sqlerror exit failure
+        echo set serveroutput on
         echo connect $(DB_USER)/"$(DB_PASSWORD)"@atpdb2024_high
         echo begin
         echo   apex_application_install.clear_all;
@@ -53,9 +55,7 @@ steps:
         echo /
         echo @"$(Build.SourcesDirectory)\f114\install.sql"
         echo exit
-      ) > deploy_apex.sql
-
-      cd sqlcl\sqlcl\bin
+      ) > "%DEPLOY_SQL%"
 
       echo Running deployment...
-      sql /nolog @..\..\..\deploy_apex.sql
+      "$(Build.SourcesDirectory)\sqlcl\sqlcl\bin\sql.exe" /nolog @"%DEPLOY_SQL%"
