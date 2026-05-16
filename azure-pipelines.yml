@@ -34,6 +34,7 @@ steps:
     script: |
       Expand-Archive "$(walletFile.secureFilePath)" -DestinationPath "$(Agent.TempDirectory)\wallet"
 
+
 - task: PowerShell@2
   displayName: 'Deploy APEX App'
   inputs:
@@ -44,44 +45,44 @@ steps:
       $installSql = "$(Build.SourcesDirectory)\f114\install.sql"
       $sqlExe = "$(Build.SourcesDirectory)\sqlcl\sqlcl\bin\sql.exe"
 
-      Write-Host "TNS_ADMIN = $env:TNS_ADMIN"
-      Write-Host "Deploy SQL = $deploySql"
-      Write-Host "Install SQL = $installSql"
-      Write-Host "SQLcl EXE  = $sqlExe"
+      Write-Host ('TNS_ADMIN = ' + ${env:TNS_ADMIN})
+      Write-Host ('Deploy SQL = ' + $deploySql)
+      Write-Host ('Install SQL = ' + $installSql)
+      Write-Host ('SQLcl EXE  = ' + $sqlExe)
 
-      $content = @"
-        whenever sqlerror exit failure
-        set serveroutput on
-        connect $(DB_USER)/"$(DB_PASSWORD)"@atpdb2024_high
-        begin
-          apex_application_install.clear_all;
-          apex_application_install.set_workspace(p_workspace => '$(TARGET_WORKSPACE)');
-          apex_application_install.set_schema(p_schema => '$(TARGET_SCHEMA)');
-          apex_application_install.set_application_id(p_application_id => $(TARGET_APP_ID));
-        end;
-        /
-        @$installSql
-        exit
-        "@
+      $lines = @(
+        'whenever sqlerror exit failure',
+        'set serveroutput on',
+        "connect $(DB_USER)/""$(DB_PASSWORD)""@atpdb2024_high",
+        'begin',
+        '  apex_application_install.clear_all;',
+        "  apex_application_install.set_workspace(p_workspace => '$(TARGET_WORKSPACE)');",
+        "  apex_application_install.set_schema(p_schema => '$(TARGET_SCHEMA)');",
+        "  apex_application_install.set_application_id(p_application_id => $(TARGET_APP_ID));",
+        'end;',
+        '/',
+        "@$installSql",
+        'exit'
+      )
 
-      $content | Out-File -FilePath $deploySql -Encoding ascii -Force
+      Set-Content -Path $deploySql -Value $lines -Encoding Ascii
 
-      Write-Host "----- deploy_apex.sql content -----"
+      Write-Host '----- deploy_apex.sql content -----'
       Get-Content $deploySql
-      Write-Host "-----------------------------------"
+      Write-Host '-----------------------------------'
 
       if (!(Test-Path $deploySql)) {
-        Write-Error "deploy_apex.sql was not created."
+        Write-Error 'deploy_apex.sql was not created.'
         exit 1
       }
 
       if (!(Test-Path $installSql)) {
-        Write-Error "install.sql not found at $installSql"
+        Write-Error ('install.sql not found at ' + $installSql)
         exit 1
       }
 
       if (!(Test-Path $sqlExe)) {
-        Write-Error "sql.exe not found at $sqlExe"
+        Write-Error ('sql.exe not found at ' + $sqlExe)
         exit 1
       }
 
