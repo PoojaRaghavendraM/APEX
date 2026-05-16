@@ -44,7 +44,14 @@ steps:
       (
         echo whenever sqlerror exit failure
         echo connect $(DB_USER)/"$(DB_PASSWORD)"@atpdb2024_high
-        echo @$(Build.SourcesDirectory)\f114\install.sql
+        echo begin
+        echo   apex_application_install.clear_all;
+        echo   apex_application_install.set_workspace(p_workspace =^> '$(TARGET_WORKSPACE)');
+        echo   apex_application_install.set_schema(p_schema =^> '$(TARGET_SCHEMA)');
+        echo   apex_application_install.set_application_id(p_application_id =^> $(TARGET_APP_ID));
+        echo end;
+        echo /
+        echo @"$(Build.SourcesDirectory)\f114\install.sql"
         echo exit
       ) > deploy_apex.sql
 
