@@ -39,10 +39,16 @@ steps:
   inputs:
     script: |
       set TNS_ADMIN=$(Agent.TempDirectory)\wallet
+
+      echo Creating deploy script...
+      (
+        echo whenever sqlerror exit failure
+        echo connect $(DB_USER)/"$(DB_PASSWORD)"@atpdb2024_high
+        echo @$(Build.SourcesDirectory)\f114\install.sql
+        echo exit
+      ) > deploy_apex.sql
+
       cd sqlcl\sqlcl\bin
 
-      echo Connecting to DB...
-      echo exit | sql $(DB_USER)/$(DB_PASSWORD)@atpdb2024_high
-
-      echo Importing APEX app...
-      sql $(DB_USER)/$(DB_PASSWORD)@atpdb2024_high @"$(Build.SourcesDirectory)\f114\install.sql"
+      echo Running deployment...
+      sql /nolog @..\..\..\deploy_apex.sql
