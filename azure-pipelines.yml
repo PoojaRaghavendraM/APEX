@@ -42,7 +42,7 @@ steps:
     script: |
       $env:TNS_ADMIN = "$(Agent.TempDirectory)\wallet"
       $deploySql = "$(Agent.TempDirectory)\deploy_apex.sql"
-      $installSql = "$(Build.SourcesDirectory)\f114\install.sql"
+      $installSql = "$(Build.SourcesDirectory)\f111\install.sql"
       $sqlExe = "$(Build.SourcesDirectory)\sqlcl\sqlcl\bin\sql.exe"
 
       Write-Host ('TNS_ADMIN = ' + ${env:TNS_ADMIN})
