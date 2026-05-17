@@ -1,0 +1,90 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+- group: apex-credentials
+
+steps:
+
+- task: PowerShell@2
+  displayName: 'Install SQLcl'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Invoke-WebRequest -Uri https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip -OutFile sqlcl.zip
+      Expand-Archive sqlcl.zip -DestinationPath sqlcl
+
+- task: DownloadSecureFile@1
+  name: walletFile
+  inputs:
+    secureFile: 'Wallet_atpdb2024.zip'
+
+- task: PowerShell@2
+  displayName: 'Extract Wallet'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Expand-Archive "$(walletFile.secureFilePath)" -DestinationPath "$(Agent.TempDirectory)\wallet"
+
+
+- task: PowerShell@2
+  displayName: 'Deploy APEX App'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $env:TNS_ADMIN = "$(Agent.TempDirectory)\wallet"
+      $deploySql = "$(Agent.TempDirectory)\deploy_apex.sql"
+      $installSql = "$(Build.SourcesDirectory)\f111\install.sql"
+      $sqlExe = "$(Build.SourcesDirectory)\sqlcl\sqlcl\bin\sql.exe"
+
+      Write-Host ('TNS_ADMIN = ' + ${env:TNS_ADMIN})
+      Write-Host ('Deploy SQL = ' + $deploySql)
+      Write-Host ('Install SQL = ' + $installSql)
+      Write-Host ('SQLcl EXE  = ' + $sqlExe)
+
+      $lines = @(
+        'whenever sqlerror exit failure',
+        'set serveroutput on',
+        "connect $(DB_USER)/""$(DB_PASSWORD)""@atpdb2024_high",
+        'begin',
+        '  apex_application_install.clear_all;',
+        '  apex_application_install.generate_offset;',
+        "  apex_application_install.set_workspace(p_workspace => '$(TARGET_WORKSPACE)');",
+        "  apex_application_install.set_schema(p_schema => '$(TARGET_SCHEMA)');",
+        "  apex_application_install.set_application_id(p_application_id => $(TARGET_APP_ID));",
+        'end;',
+        '/',
+        "@$installSql",
+        'exit'
+      )
+
+      Set-Content -Path $deploySql -Value $lines -Encoding Ascii
+
+      Write-Host '----- deploy_apex.sql content -----'
+      Get-Content $deploySql
+      Write-Host '-----------------------------------'
+
+      if (!(Test-Path $deploySql)) {
+        Write-Error 'deploy_apex.sql was not created.'
+        exit 1
+      }
+
+      if (!(Test-Path $installSql)) {
+        Write-Error ('install.sql not found at ' + $installSql)
+        exit 1
+      }
+
+      if (!(Test-Path $sqlExe)) {
+        Write-Error ('sql.exe not found at ' + $sqlExe)
+        exit 1
+      }
+
+      & $sqlExe /nolog "@$deploySql"
